@@ -40,72 +40,69 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     // =============================================
-    // SLIDER AND CAROUSEL INITIALIZATION
+    // CAROUSEL AND SLIDER INITIALIZATION
     // =============================================
-    class SliderManager {
-        constructor() {
-            this.initializeAwsSlider = this.initializeAwsSlider.bind(this);
-            this.initializeCategorySlider = this.initializeCategorySlider.bind(this);
-            this.initializeOffersCarousel = this.initializeOffersCarousel.bind(this);
-            this.initializeAllSliders = this.initializeAllSliders.bind(this);
-            this.reinitializeComponents = this.reinitializeComponents.bind(this);
-        }
+    const CarouselManager = {
+        initializeAll() {
+            // Initialize banner carousel
+            if (typeof ABCarousel !== 'undefined') {
+                const bannerCarousels = document.querySelectorAll('.abc-banner-carousel:not(.initialized)');
+                bannerCarousels.forEach(carousel => {
+                    new ABCarousel(carousel);
+                    carousel.classList.add('initialized');
+                });
+            }
 
-        destroyExistingSliders() {
-            // Destroy AWS Sliders
-            document.querySelectorAll('[data-slider="aws-slider"]').forEach(slider => {
-                if (slider.awsSliderInstance?.destroy) {
-                    slider.awsSliderInstance.destroy();
+            // Initialize category grid
+            if (typeof initResponsiveGrids !== 'undefined') {
+                initResponsiveGrids();
+            }
+
+            // Initialize countdown timer
+            if (typeof WCCountdownTimer !== 'undefined') {
+                new WCCountdownTimer();
+            }
+
+            // Initialize custom category slider
+            if (typeof AWSSlider !== 'undefined') {
+                document.querySelectorAll('.aws-slider:not(.initialized)').forEach(slider => {
+                    new AWSSlider(slider);
+                    slider.classList.add('initialized');
+                });
+            }
+
+            // Initialize offers carousel
+            document.querySelectorAll('.oc-carousel-wrapper:not(.initialized)').forEach(carousel => {
+                if (typeof initCarousel !== 'undefined') {
+                    initCarousel(carousel);
+                    carousel.classList.add('initialized');
                 }
             });
 
-            // Remove any existing carousel instances
-            document.querySelectorAll('.offers-carousel, .category-slider').forEach(element => {
-                if (element._instance?.destroy) {
-                    element._instance.destroy();
+            // Initialize product carousel
+            document.querySelectorAll('.pc-carousel-wrapper:not(.initialized)').forEach(carousel => {
+                if (typeof ProductCarousel !== 'undefined') {
+                    new ProductCarousel(carousel);
+                    carousel.classList.add('initialized');
                 }
             });
-        }
+        },
 
-        initializeAwsSlider() {
-            const sliders = document.querySelectorAll('[data-slider="aws-slider"]');
-            sliders.forEach(slider => {
-                if (window.AwsSlider) {
-                    slider.awsSliderInstance = new window.AwsSlider(slider);
-                }
+        destroyAll() {
+            // Remove initialized classes to allow re-initialization
+            document.querySelectorAll('.initialized').forEach(el => {
+                el.classList.remove('initialized');
             });
-        }
 
-        initializeCategorySlider() {
-            const sliders = document.querySelectorAll('.category-slider');
-            sliders.forEach(slider => {
-                if (window.CategorySlider) {
-                    slider._instance = new window.CategorySlider(slider);
-                }
-            });
+            // Clean up any existing instances
+            if (window.abcCarousels) {
+                window.abcCarousels.forEach(carousel => {
+                    if (carousel.cleanup) carousel.cleanup();
+                });
+                window.abcCarousels = [];
+            }
         }
-
-        initializeOffersCarousel() {
-            const carousels = document.querySelectorAll('.offers-carousel');
-            carousels.forEach(carousel => {
-                if (window.OffersCarousel) {
-                    carousel._instance = new window.OffersCarousel(carousel);
-                }
-            });
-        }
-
-        reinitializeComponents() {
-            this.destroyExistingSliders();
-            this.initializeAwsSlider();
-            this.initializeCategorySlider();
-            this.initializeOffersCarousel();
-            window.dispatchEvent(new CustomEvent('slidersInitialized'));
-        }
-
-        initializeAllSliders() {
-            setTimeout(this.reinitializeComponents, 100);
-        }
-    }
+    };
 
     // =============================================
     // PERFORMANCE UTILITIES
@@ -181,8 +178,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Create instances
-    const sliderManager = new SliderManager();
     const performance = new Performance();
 
     // =============================================
@@ -357,10 +352,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (!data.success) throw new Error('Failed to load content');
 
+            // Clean up existing carousels before updating content
+            CarouselManager.destroyAll();
+
+            // Update content
             elements.contentContainer.innerHTML = data.data.content;
-            
-            // Ensure all sliders are properly destroyed and reinitialized
-            sliderManager.reinitializeComponents();
+
+            // Initialize all carousels after content update
+            CarouselManager.initializeAll();
 
             window.dispatchEvent(new CustomEvent('gender-tab-loaded', {
                 detail: { gender }
@@ -453,7 +452,7 @@ document.addEventListener('DOMContentLoaded', function() {
             UI.updateBodyClass(initialGender);
         }
 
-        sliderManager.initializeAllSliders();
+        CarouselManager.initializeAll();
         initializeEventListeners();
         performance.setupIntersectionObserver();
 
