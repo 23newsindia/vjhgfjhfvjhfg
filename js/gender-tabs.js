@@ -55,8 +55,10 @@ document.addEventListener('DOMContentLoaded', function() {
             if (typeof ABCarousel !== 'undefined') {
                 const bannerCarousels = document.querySelectorAll('.abc-banner-carousel:not(.initialized)');
                 bannerCarousels.forEach(carousel => {
-                    new ABCarousel(carousel);
-                    carousel.classList.add('initialized');
+                    if (carousel) {
+                        new ABCarousel(carousel);
+                        carousel.classList.add('initialized');
+                    }
                 });
             }
 
@@ -78,16 +80,25 @@ document.addEventListener('DOMContentLoaded', function() {
             // Initialize custom category slider
             if (typeof AWSSlider !== 'undefined') {
                 document.querySelectorAll('.aws-slider:not(.initialized)').forEach(slider => {
-                    new AWSSlider(slider);
-                    slider.classList.add('initialized');
+                    if (slider) {
+                        new AWSSlider(slider);
+                        slider.classList.add('initialized');
+                    }
                 });
             }
 
             // Initialize product carousel with proper cleanup and visibility handling
             const productCarousels = document.querySelectorAll('.pc-carousel-wrapper:not(.initialized)');
             for (const carousel of productCarousels) {
-                if (typeof ProductCarousel !== 'undefined') {
+                if (carousel && typeof ProductCarousel !== 'undefined') {
                     try {
+                        // Ensure container exists and has children
+                        const container = carousel.querySelector('.pc-carousel-container');
+                        if (!container || !container.children.length) {
+                            console.warn('Invalid carousel structure:', carousel);
+                            continue;
+                        }
+
                         // Force reflow and ensure visibility
                         carousel.style.display = 'none';
                         carousel.offsetHeight; // Force reflow
@@ -113,17 +124,19 @@ document.addEventListener('DOMContentLoaded', function() {
             // Initialize offers carousel
             const offerCarousels = document.querySelectorAll('.oc-carousel-wrapper:not(.initialized)');
             offerCarousels.forEach(carousel => {
-                if (!carousel.getAttribute('data-original-content')) {
-                    carousel.setAttribute('data-original-content', carousel.innerHTML);
-                }
-                carousel.classList.remove('cg-carousel-mode');
-                
-                if (typeof window.initCarousel === 'function') {
-                    try {
-                        window.initCarousel(carousel);
-                        carousel.classList.add('initialized');
-                    } catch (error) {
-                        console.error('Error initializing offer carousel:', error);
+                if (carousel) {
+                    if (!carousel.getAttribute('data-original-content')) {
+                        carousel.setAttribute('data-original-content', carousel.innerHTML);
+                    }
+                    carousel.classList.remove('cg-carousel-mode');
+                    
+                    if (typeof window.initCarousel === 'function') {
+                        try {
+                            window.initCarousel(carousel);
+                            carousel.classList.add('initialized');
+                        } catch (error) {
+                            console.error('Error initializing offer carousel:', error);
+                        }
                     }
                 }
             });
@@ -139,8 +152,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (instance && typeof instance.destroy === 'function') {
                         instance.destroy();
                     }
-                    element.style.visibility = '';
-                    element.style.display = '';
+                    if (element) {
+                        element.style.visibility = '';
+                        element.style.display = '';
+                    }
                 } catch (error) {
                     console.error('Error destroying carousel instance:', error);
                 }
@@ -150,7 +165,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Clean up other carousels
             if (window.abcCarousels) {
                 window.abcCarousels.forEach(carousel => {
-                    if (carousel.cleanup) carousel.cleanup();
+                    if (carousel && carousel.cleanup) carousel.cleanup();
                 });
                 window.abcCarousels = [];
             }
@@ -163,7 +178,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Clean up observers
             if (typeof imageObserver !== 'undefined' && imageObserver) {
                 document.querySelectorAll('.cg-category-image').forEach(img => {
-                    imageObserver.unobserve(img);
+                    if (img) imageObserver.unobserve(img);
                 });
             }
 
@@ -394,9 +409,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
-    // =============================================
-    // CONTENT MANAGEMENT
-    // =============================================
     async function loadContent(url, isRetry = false) {
         if (!elements.contentContainer || state.isLoading) return;
 
@@ -426,11 +438,14 @@ document.addEventListener('DOMContentLoaded', function() {
             // Update content
             elements.contentContainer.innerHTML = data.data.content;
 
-            // Add delay before initialization
-            await utils.delay(150);
+            // Add longer delay before initialization
+            await utils.delay(500);
             
             // Initialize all carousels
             await CarouselManager.initializeAll();
+
+            // Additional delay before triggering resize
+            await utils.delay(200);
 
             // Trigger a resize event to ensure proper layout
             window.dispatchEvent(new Event('resize'));
