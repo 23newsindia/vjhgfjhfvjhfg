@@ -1015,7 +1015,7 @@ function add_custom_scripts_for_my_account_page() {
             "register_nonce" => wp_create_nonce('register_nonce'),
             "home_url" => home_url('/'),
             "firebase_config" => array(
-                "apiKey" => "AIzaSyCRH_u9u9Q5X8kgrJlhhb6BejqekRNzYqQ",
+               
                 "authDomain" => "mellmon.firebaseapp.com",
                 "projectId" => "mellmon",
                 "storageBucket" => "mellmon.appspot.com",
