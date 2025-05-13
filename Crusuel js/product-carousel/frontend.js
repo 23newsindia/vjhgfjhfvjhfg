@@ -7,6 +7,13 @@ function initAllCarousels() {
     const carousels = document.querySelectorAll('.pc-carousel-wrapper:not(.initialized)');
     carousels.forEach(carousel => {
         try {
+            // Validate carousel structure before initialization
+            const container = carousel.querySelector('.pc-carousel-container');
+            if (!container || !container.children.length) {
+                console.warn('Invalid carousel structure, skipping initialization');
+                return;
+            }
+
             new ProductCarousel(carousel);
             carousel.classList.add('initialized');
         } catch (error) {
@@ -21,7 +28,10 @@ function setupAjaxObserver() {
         const observer = new MutationObserver(function(mutations) {
             mutations.forEach(function(mutation) {
                 if (mutation.addedNodes.length) {
-                    initAllCarousels();
+                    // Add slight delay to ensure DOM is ready
+                    setTimeout(() => {
+                        initAllCarousels();
+                    }, 100);
                 }
             });
         });
@@ -34,6 +44,8 @@ function setupAjaxObserver() {
 }
 
 function fallbackToGrid(carousel) {
+    if (!carousel) return;
+    
     const container = carousel.querySelector('.pc-carousel-container');
     if (container) {
         container.style.display = 'grid';
@@ -46,6 +58,11 @@ function fallbackToGrid(carousel) {
 
 class ProductCarousel {
     constructor(wrapper) {
+        // Validate wrapper before proceeding
+        if (!wrapper || !wrapper.querySelector('.pc-carousel-container')) {
+            throw new Error('Invalid carousel structure');
+        }
+        
         this.wrapper = wrapper;
         this.container = wrapper.querySelector('.pc-carousel-container');
         this.slides = Array.from(this.container.children);
@@ -79,7 +96,7 @@ class ProductCarousel {
             autoplaySpeed: parseInt(wrapper.dataset.autoplaySpeed) || 3000,
             swipeThreshold: 50,
             swipeVelocity: 0.3,
-            scrollLockThreshold: 10 // New threshold for vertical scroll lock
+            scrollLockThreshold: 10
         };
 
         this.init();
