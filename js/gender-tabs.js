@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     // =============================================
-    // DOM ELEMENT CACHE AND PERFORMANCE OPTIMIZATION
+    // DOM ELEMENT CACHE
     // =============================================
     const elements = {
         tabsContainer: document.getElementById('gender-tabs-container'),
@@ -32,10 +32,54 @@ document.addEventListener('DOMContentLoaded', function() {
         nonceInput: document.getElementById('gender-tabs-nonce'),
         intersectionObserver: null,
         get allTabs() {
-            return [...document.querySelectorAll('.tab-btn')];
+            return Array.from(document.querySelectorAll('.tab-btn'));
         },
         get allMenus() {
-            return [...document.querySelectorAll('.comboMenu')];
+            return Array.from(document.querySelectorAll('.comboMenu'));
+        }
+    };
+
+    // =============================================
+    // SLIDER AND CAROUSEL INITIALIZATION
+    // =============================================
+    const sliderManager = {
+        initializeAwsSlider() {
+            const sliders = document.querySelectorAll('[data-slider="aws-slider"]');
+            sliders.forEach(slider => {
+                if (slider.awsSliderInstance) {
+                    slider.awsSliderInstance.destroy();
+                }
+                if (window.AwsSlider) {
+                    slider.awsSliderInstance = new window.AwsSlider(slider);
+                }
+            });
+        },
+
+        initializeCategorySlider() {
+            const sliders = document.querySelectorAll('.category-slider');
+            sliders.forEach(slider => {
+                if (window.CategorySlider) {
+                    new window.CategorySlider(slider);
+                }
+            });
+        },
+
+        initializeOffersCarousel() {
+            const carousels = document.querySelectorAll('.offers-carousel');
+            carousels.forEach(carousel => {
+                if (window.OffersCarousel) {
+                    new window.OffersCarousel(carousel);
+                }
+            });
+        },
+
+        initializeAllSliders() {
+            setTimeout(() => {
+                this.initializeAwsSlider();
+                this.initializeCategorySlider();
+                this.initializeOffersCarousel();
+                window.dispatchEvent(new CustomEvent('slidersInitialized'));
+            }, 100);
         }
     };
 
@@ -87,30 +131,29 @@ document.addEventListener('DOMContentLoaded', function() {
         setupIntersectionObserver() {
             if (!('IntersectionObserver' in window)) return;
 
-            elements.intersectionObserver = new IntersectionObserver(
-                (entries) => {
-                    entries.forEach(entry => {
-                        if (entry.isIntersecting) {
-                            const gender = entry.target.dataset.gender;
-                            if (gender) {
-                                performance.requestIdleCallback(() => {
-                                    performance.prefetchContent(gender);
-                                });
-                            }
+            const observerCallback = (entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const gender = entry.target.dataset.gender;
+                        if (gender) {
+                            this.prefetchContent(gender);
                         }
-                    });
-                },
-                { threshold: 0.1 }
-            );
+                    }
+                });
+            };
+
+            elements.intersectionObserver = new IntersectionObserver(observerCallback, { 
+                threshold: 0.1 
+            });
 
             elements.allTabs.forEach(tab => {
-                elements.intersectionObserver?.observe(tab);
+                elements.intersectionObserver.observe(tab);
             });
         }
     };
 
     // =============================================
-    // ENHANCED UTILITIES
+    // UTILITIES
     // =============================================
     const utils = {
         debounce(func, wait) {
@@ -155,7 +198,7 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     // =============================================
-    // ENHANCED UI MANAGEMENT WITH ACCESSIBILITY
+    // UI MANAGEMENT
     // =============================================
     const UI = {
         updateActiveTab(activeBtn) {
@@ -256,69 +299,56 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     // =============================================
-    // ENHANCED CONTENT MANAGEMENT
+    // CONTENT MANAGEMENT
     // =============================================
     async function loadContent(url, isRetry = false) {
-    if (!elements.contentContainer || state.isLoading) return;
+        if (!elements.contentContainer || state.isLoading) return;
 
-    state.isLoading = true;
-    UI.showLoadingState();
+        state.isLoading = true;
+        UI.showLoadingState();
 
-    try {
-        const gender = utils.extractGenderFromUrl(url);
-        const formData = new URLSearchParams({
-            action: 'load_gender_content',
-            gender,
-            nonce: config.nonce
-        });
+        try {
+            const gender = utils.extractGenderFromUrl(url);
+            const formData = new URLSearchParams({
+                action: 'load_gender_content',
+                gender,
+                nonce: config.nonce
+            });
 
-        const response = await fetch(config.ajaxurl, {
-            method: 'POST',
-            body: formData
-        });
+            const response = await fetch(config.ajaxurl, {
+                method: 'POST',
+                body: formData
+            });
 
-        const data = await response.json();
+            const data = await response.json();
 
-        if (!data.success) throw new Error('Failed to load content');
+            if (!data.success) throw new Error('Failed to load content');
 
-        // Parse and insert HTML
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(data.data.content, 'text/html');
-        elements.contentContainer.innerHTML = doc.body.innerHTML;
+            elements.contentContainer.innerHTML = data.data.content;
 
-        // Execute scripts safely
-        const scripts = elements.contentContainer.querySelectorAll('script');
-        scripts.forEach(script => {
-            const newScript = document.createElement('script');
-            if (script.src) {
-                newScript.src = script.src;
-                newScript.async = false;
-            } else {
-                newScript.textContent = script.textContent;
-            }
-            document.body.appendChild(newScript).parentNode.removeChild(newScript);
-        });
+            // Initialize sliders after content is loaded
+            sliderManager.initializeAllSliders();
 
-        // Dispatch custom event
-        window.dispatchEvent(new CustomEvent('gender-tab-loaded', {
-            detail: { gender }
-        }));
+            // Dispatch custom event
+            window.dispatchEvent(new CustomEvent('gender-tab-loaded', {
+                detail: { gender }
+            }));
 
-        // Cache content
-        state.contentCache.set(gender, data.data.content);
-        history.pushState({ gender }, '', url);
-        
-    } catch (error) {
-        console.error('Tab load error:', error);
-        UI.showErrorState('Failed to load content. Please try again.');
-    } finally {
-        state.isLoading = false;
-        elements.contentContainer.classList.remove('loading');
+            // Cache content
+            state.contentCache.set(gender, data.data.content);
+            history.pushState({ gender }, '', url);
+            
+        } catch (error) {
+            console.error('Tab load error:', error);
+            UI.showErrorState('Failed to load content. Please try again.');
+        } finally {
+            state.isLoading = false;
+            elements.contentContainer.classList.remove('loading');
+        }
     }
-}
 
     // =============================================
-    // ENHANCED EVENT HANDLERS
+    // EVENT HANDLERS
     // =============================================
     function initializeEventListeners() {
         // Tab click handler with keyboard support
@@ -376,46 +406,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         });
-
-        // Visibility observer
-        if ('IntersectionObserver' in window) {
-            const observer = new MutationObserver((mutations) => {
-                mutations.forEach((mutation) => {
-                    if (mutation.attributeName === 'style') {
-                        UI.ensureTabsVisible();
-                    }
-                });
-            });
-
-            if (elements.tabsContainer) {
-                observer.observe(elements.tabsContainer, {
-                    attributes: true,
-                    attributeFilter: ['style']
-                });
-            }
-        }
     }
-// Slider reinitialization handler
-function handleSliderReinit() {
-    if (typeof Swiper === 'function') {
-        document.querySelectorAll('.gender-slider').forEach(slider => {
-            new Swiper(slider, {
-                loop: true,
-                pagination: { el: '.swiper-pagination' }
-            });
-        });
-    }
-    
-    // Initialize other sliders (e.g., offers_carousel)
-    if (typeof jQuery !== 'undefined' && jQuery().owlCarousel) {
-        jQuery('.offers-carousel').owlCarousel({ /* options */ });
-    }
-}
-
-// Listen for tab changes
-window.addEventListener('gender-tab-loaded', handleSliderReinit);
-
-  
 
     // =============================================
     // INITIALIZATION
@@ -433,6 +424,9 @@ window.addEventListener('gender-tab-loaded', handleSliderReinit);
             UI.updateActiveTab(initialTab);
             UI.updateBodyClass(initialGender);
         }
+
+        // Initialize sliders for the initial content
+        sliderManager.initializeAllSliders();
 
         initializeEventListeners();
         performance.setupIntersectionObserver();
