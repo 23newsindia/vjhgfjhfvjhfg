@@ -57,9 +57,14 @@ const CarouselManager = {
             });
         }
 
-        // Initialize category grid
+        // Initialize category grid first (NEW ORDER)
         if (typeof initResponsiveGrids !== 'undefined') {
             initResponsiveGrids();
+        }
+
+        // Initialize image loading states (NEW CODE)
+        if (typeof initImageLoadStates !== 'undefined') {
+            initImageLoadStates();
         }
 
         // Initialize countdown timer
@@ -113,7 +118,14 @@ const CarouselManager = {
             }
         });
 
-        // Remove initialized classes to allow re-initialization
+        // Clean up observers (NEW CODE)
+        if (typeof imageObserver !== 'undefined' && imageObserver) {
+            document.querySelectorAll('.cg-category-image').forEach(img => {
+                imageObserver.unobserve(img);
+            });
+        }
+
+        // Remove initialized classes
         document.querySelectorAll('.initialized').forEach(el => {
             el.classList.remove('initialized');
         });
@@ -355,52 +367,55 @@ const CarouselManager = {
     // CONTENT MANAGEMENT
     // =============================================
     async function loadContent(url, isRetry = false) {
-        if (!elements.contentContainer || state.isLoading) return;
+    if (!elements.contentContainer || state.isLoading) return;
 
-        state.isLoading = true;
-        UI.showLoadingState();
+    state.isLoading = true;
+    UI.showLoadingState();
 
-        try {
-            const gender = utils.extractGenderFromUrl(url);
-            const formData = new URLSearchParams({
-                action: 'load_gender_content',
-                gender,
-                nonce: config.nonce
-            });
+    try {
+        const gender = utils.extractGenderFromUrl(url);
+        const formData = new URLSearchParams({
+            action: 'load_gender_content',
+            gender,
+            nonce: config.nonce
+        });
 
-            const response = await fetch(config.ajaxurl, {
-                method: 'POST',
-                body: formData
-            });
+        const response = await fetch(config.ajaxurl, {
+            method: 'POST',
+            body: formData
+        });
 
-            const data = await response.json();
+        const data = await response.json();
 
-            if (!data.success) throw new Error('Failed to load content');
+        if (!data.success) throw new Error('Failed to load content');
 
-            // Clean up existing carousels before updating content
-            CarouselManager.destroyAll();
+        // Clean up existing carousels before updating content
+        CarouselManager.destroyAll();
 
-            // Update content
-            elements.contentContainer.innerHTML = data.data.content;
+        // Update content
+        elements.contentContainer.innerHTML = data.data.content;
 
-            // Initialize all carousels after content update
-            CarouselManager.initializeAll();
+        // Add small delay before initialization (NEW CODE)
+        await utils.delay(50);
+        
+        // Initialize all carousels after content update
+        CarouselManager.initializeAll();
 
-            window.dispatchEvent(new CustomEvent('gender-tab-loaded', {
-                detail: { gender }
-            }));
+        window.dispatchEvent(new CustomEvent('gender-tab-loaded', {
+            detail: { gender }
+        }));
 
-            state.contentCache.set(gender, data.data.content);
-            history.pushState({ gender }, '', url);
-            
-        } catch (error) {
-            console.error('Tab load error:', error);
-            UI.showErrorState('Failed to load content. Please try again.');
-        } finally {
-            state.isLoading = false;
-            elements.contentContainer.classList.remove('loading');
-        }
+        state.contentCache.set(gender, data.data.content);
+        history.pushState({ gender }, '', url);
+        
+    } catch (error) {
+        console.error('Tab load error:', error);
+        UI.showErrorState('Failed to load content. Please try again.');
+    } finally {
+        state.isLoading = false;
+        elements.contentContainer.classList.remove('loading');
     }
+}
 
     // =============================================
     // EVENT HANDLERS
