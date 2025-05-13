@@ -38,9 +38,9 @@ class ABCarousel {
     init() {
         if (this.slides.length === 0) return;
         
+        // Load all images immediately to prevent undefined src
+        this.loadAllImages();
         this.setupSlider();
-        this.loadFirstSlide();
-        this.setupLazyLoading();
         this.setupEventListeners();
         
         if (this.settings.autoplay) {
@@ -48,65 +48,28 @@ class ABCarousel {
         }
     }
 
-    setupLazyLoading() {
-        if ('IntersectionObserver' in window) {
-            this.observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        const slide = entry.target;
-                        const img = slide.querySelector('img[data-src]');
-                        if (img && img.dataset.src) {
-                            this.loadImage(img);
-                        }
-                        this.observer.unobserve(slide);
-                    }
-                });
-            }, {
-                root: this.wrapper,
-                rootMargin: '50% 50%',
-                threshold: 0.1
-            });
-            
-            // Observe all slides except the first one (which is loaded eagerly)
-            this.slides.forEach((slide, index) => {
-                if (index > 0) {
-                    this.observer.observe(slide);
-                }
-            });
-        } else {
-            // Fallback for browsers without IntersectionObserver
-            this.loadAllImages();
-        }
-    }
-
-    loadImage(img) {
-        if (!img.dataset.src) return;
-        
-        const newImg = new Image();
-        newImg.onload = () => {
-            img.src = img.dataset.src;
-            img.classList.add('abc-image-loaded');
-            delete img.dataset.src;
-        };
-        newImg.src = img.dataset.src;
-    }
-
     loadAllImages() {
-        this.slides.forEach(slide => {
-            const img = slide.querySelector('img[data-src]');
+        this.slides.forEach((slide, index) => {
+            const img = slide.querySelector('img');
             if (img) {
-                this.loadImage(img);
+                // Set loading attribute based on index
+                img.loading = index === 0 ? 'eager' : 'lazy';
+                
+                // If there's a data-src, use it
+                if (img.dataset.src) {
+                    img.src = img.dataset.src;
+                    delete img.dataset.src;
+                }
+                
+                // Ensure the src attribute exists
+                if (!img.src && img.getAttribute('src') === 'undefined') {
+                    console.error('Image source is undefined:', img);
+                    // Set a default image or handle the error appropriately
+                }
+                
+                img.classList.add('abc-image-loaded');
             }
         });
-    }
-
-    loadFirstSlide() {
-        const firstSlideImg = this.slides[0]?.querySelector('img[data-src]');
-        if (firstSlideImg) {
-            firstSlideImg.src = firstSlideImg.dataset.src;
-            delete firstSlideImg.dataset.src;
-            firstSlideImg.classList.add('abc-image-loaded', 'customFade-active');
-        }
     }
 
     setupSlider() {
@@ -356,6 +319,10 @@ document.addEventListener('DOMContentLoaded', () => {
     window.abcCarousels = [];
     
     carousels.forEach(carousel => {
-        window.abcCarousels.push(new ABCarousel(carousel));
+        if (!carousel.classList.contains('initialized')) {
+            const instance = new ABCarousel(carousel);
+            window.abcCarousels.push(instance);
+            carousel.classList.add('initialized');
+        }
     });
 });
