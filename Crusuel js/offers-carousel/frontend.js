@@ -1,12 +1,34 @@
 document.addEventListener('DOMContentLoaded', function() {
     const initCarousel = (carousel) => {
+        // Remove any conflicting classes first
+        carousel.classList.remove('cg-carousel-mode');
+        
+        // Clear existing content if it's being reinitialized
+        if (carousel.classList.contains('initialized')) {
+            carousel.innerHTML = carousel.getAttribute('data-original-content') || carousel.innerHTML;
+            carousel.classList.remove('initialized');
+        }
+
+        // Store original content for potential reinitialization
+        if (!carousel.getAttribute('data-original-content')) {
+            carousel.setAttribute('data-original-content', carousel.innerHTML);
+        }
+
         const container = carousel.querySelector('.oc-carousel-container');
+        if (!container) {
+            console.error('Carousel container not found');
+            return;
+        }
+
         const slides = Array.from(carousel.querySelectorAll('.oc-slide'));
+        if (slides.length === 0) {
+            console.error('No slides found in carousel');
+            return;
+        }
+
         const prevBtn = carousel.querySelector('.oc-carousel-nav.prev');
         const nextBtn = carousel.querySelector('.oc-carousel-nav.next');
         const dots = Array.from(carousel.querySelectorAll('.oc-carousel-dot'));
-        
-        if (slides.length === 0) return;
 
         // Set initial states
         slides[0].classList.add('active');
@@ -270,13 +292,29 @@ document.addEventListener('DOMContentLoaded', function() {
         carousel.addEventListener('slideChange', preloadImages);
     };
 
-    // Initialize all carousels
-    const carousels = document.querySelectorAll('.oc-carousel-wrapper');
+   // Initialize all carousels
+    window.initCarousel = initCarousel; // Make it globally available
+
+    const carousels = document.querySelectorAll('.oc-carousel-wrapper:not(.initialized)');
     if ('requestIdleCallback' in window) {
         carousels.forEach(carousel => {
-            requestIdleCallback(() => initCarousel(carousel));
+            requestIdleCallback(() => {
+                try {
+                    initCarousel(carousel);
+                    carousel.classList.add('initialized');
+                } catch (error) {
+                    console.error('Failed to initialize carousel:', error);
+                }
+            });
         });
     } else {
-        carousels.forEach(carousel => initCarousel(carousel));
+        carousels.forEach(carousel => {
+            try {
+                initCarousel(carousel);
+                carousel.classList.add('initialized');
+            } catch (error) {
+                console.error('Failed to initialize carousel:', error);
+            }
+        });
     }
 });
