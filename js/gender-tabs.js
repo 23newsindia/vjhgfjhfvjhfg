@@ -42,59 +42,87 @@ document.addEventListener('DOMContentLoaded', function() {
     // =============================================
     // SLIDER AND CAROUSEL INITIALIZATION
     // =============================================
-    const sliderManager = {
+    class SliderManager {
+        constructor() {
+            this.initializeAwsSlider = this.initializeAwsSlider.bind(this);
+            this.initializeCategorySlider = this.initializeCategorySlider.bind(this);
+            this.initializeOffersCarousel = this.initializeOffersCarousel.bind(this);
+            this.initializeAllSliders = this.initializeAllSliders.bind(this);
+            this.reinitializeComponents = this.reinitializeComponents.bind(this);
+        }
+
+        destroyExistingSliders() {
+            // Destroy AWS Sliders
+            document.querySelectorAll('[data-slider="aws-slider"]').forEach(slider => {
+                if (slider.awsSliderInstance?.destroy) {
+                    slider.awsSliderInstance.destroy();
+                }
+            });
+
+            // Remove any existing carousel instances
+            document.querySelectorAll('.offers-carousel, .category-slider').forEach(element => {
+                if (element._instance?.destroy) {
+                    element._instance.destroy();
+                }
+            });
+        }
+
         initializeAwsSlider() {
             const sliders = document.querySelectorAll('[data-slider="aws-slider"]');
             sliders.forEach(slider => {
-                if (slider.awsSliderInstance) {
-                    slider.awsSliderInstance.destroy();
-                }
                 if (window.AwsSlider) {
                     slider.awsSliderInstance = new window.AwsSlider(slider);
                 }
             });
-        },
+        }
 
         initializeCategorySlider() {
             const sliders = document.querySelectorAll('.category-slider');
             sliders.forEach(slider => {
                 if (window.CategorySlider) {
-                    new window.CategorySlider(slider);
+                    slider._instance = new window.CategorySlider(slider);
                 }
             });
-        },
+        }
 
         initializeOffersCarousel() {
             const carousels = document.querySelectorAll('.offers-carousel');
             carousels.forEach(carousel => {
                 if (window.OffersCarousel) {
-                    new window.OffersCarousel(carousel);
+                    carousel._instance = new window.OffersCarousel(carousel);
                 }
             });
-        },
+        }
+
+        reinitializeComponents() {
+            this.destroyExistingSliders();
+            this.initializeAwsSlider();
+            this.initializeCategorySlider();
+            this.initializeOffersCarousel();
+            window.dispatchEvent(new CustomEvent('slidersInitialized'));
+        }
 
         initializeAllSliders() {
-            setTimeout(() => {
-                this.initializeAwsSlider();
-                this.initializeCategorySlider();
-                this.initializeOffersCarousel();
-                window.dispatchEvent(new CustomEvent('slidersInitialized'));
-            }, 100);
+            setTimeout(this.reinitializeComponents, 100);
         }
-    };
+    }
 
     // =============================================
     // PERFORMANCE UTILITIES
     // =============================================
-    const performance = {
-        requestIdleCallback: window.requestIdleCallback || function(cb) {
-            return setTimeout(() => cb({
-                didTimeout: false,
-                timeRemaining: () => 1
-            }), 1);
-        },
+    class Performance {
+        constructor() {
+            this.prefetchContent = this.prefetchContent.bind(this);
+            this.setupIntersectionObserver = this.setupIntersectionObserver.bind(this);
+            
+            this.requestIdleCallback = (window.requestIdleCallback || 
+                ((cb) => setTimeout(() => cb({
+                    didTimeout: false,
+                    timeRemaining: () => 1
+                }), 1))).bind(window);
 
-        cancelIdleCallback: window.cancelIdleCallback || window.clearTimeout,
+            this.cancelIdleCallback = (window.cancelIdleCallback || window.clearTimeout).bind(window);
+        }
 
         async prefetchContent(gender) {
             if (state.contentCache.has(gender) || state.prefetchedGenders.has(gender)) return;
@@ -126,7 +154,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch (error) {
                 console.warn(`Prefetch failed for ${gender}:`, error);
             }
-        },
+        }
 
         setupIntersectionObserver() {
             if (!('IntersectionObserver' in window)) return;
@@ -142,15 +170,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             };
 
-            elements.intersectionObserver = new IntersectionObserver(observerCallback, { 
-                threshold: 0.1 
-            });
+            elements.intersectionObserver = new IntersectionObserver(
+                observerCallback.bind(this),
+                { threshold: 0.1 }
+            );
 
             elements.allTabs.forEach(tab => {
                 elements.intersectionObserver.observe(tab);
             });
         }
-    };
+    }
+
+    // Create instances
+    const sliderManager = new SliderManager();
+    const performance = new Performance();
 
     // =============================================
     // UTILITIES
@@ -325,16 +358,14 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!data.success) throw new Error('Failed to load content');
 
             elements.contentContainer.innerHTML = data.data.content;
+            
+            // Ensure all sliders are properly destroyed and reinitialized
+            sliderManager.reinitializeComponents();
 
-            // Initialize sliders after content is loaded
-            sliderManager.initializeAllSliders();
-
-            // Dispatch custom event
             window.dispatchEvent(new CustomEvent('gender-tab-loaded', {
                 detail: { gender }
             }));
 
-            // Cache content
             state.contentCache.set(gender, data.data.content);
             history.pushState({ gender }, '', url);
             
@@ -351,7 +382,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // EVENT HANDLERS
     // =============================================
     function initializeEventListeners() {
-        // Tab click handler with keyboard support
         elements.tabsContainer?.addEventListener('click', (e) => {
             const tabBtn = e.target.closest('.tab-btn');
             if (!tabBtn) return;
@@ -362,7 +392,6 @@ document.addEventListener('DOMContentLoaded', function() {
             loadContent(tabBtn.href);
         });
 
-        // Keyboard navigation
         elements.tabsContainer?.addEventListener('keydown', (e) => {
             const targetTab = e.target.closest('.tab-btn');
             if (!targetTab) return;
@@ -396,7 +425,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        // Browser navigation
         window.addEventListener('popstate', (e) => {
             if (e.state?.gender) {
                 const tabBtn = document.querySelector(`.tab-btn.${e.state.gender}`);
@@ -425,13 +453,10 @@ document.addEventListener('DOMContentLoaded', function() {
             UI.updateBodyClass(initialGender);
         }
 
-        // Initialize sliders for the initial content
         sliderManager.initializeAllSliders();
-
         initializeEventListeners();
         performance.setupIntersectionObserver();
 
-        // Prefetch other content after initial load
         setTimeout(() => {
             config.validGenders.forEach(gender => {
                 if (gender !== initialGender) {
