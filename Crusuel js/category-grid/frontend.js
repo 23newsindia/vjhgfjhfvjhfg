@@ -50,8 +50,14 @@ function setupObservers() {
 function initImageLoadStates() {
     const images = document.querySelectorAll('.cg-category-image');
     
-    if ('loading' in HTMLImageElement.prototype) {
-        images.forEach(img => {
+    images.forEach(img => {
+        // If image is already loaded but doesn't have the loaded class
+        if (img.complete && !img.classList.contains('loaded')) {
+            img.classList.add('loaded');
+            return;
+        }
+
+        if ('loading' in HTMLImageElement.prototype) {
             img.loading = 'lazy';
             img.decoding = 'async';
             if (img.complete) {
@@ -60,14 +66,12 @@ function initImageLoadStates() {
                 img.addEventListener('load', () => img.classList.add('loaded'), options);
                 img.addEventListener('error', handleImageError, options);
             }
-        });
-    } else {
-        images.forEach(img => {
+        } else {
             if (!img.classList.contains('loaded')) {
                 imageObserver.observe(img);
             }
-        });
-    }
+        }
+    });
 }
 
 function handleImageError(e) {
