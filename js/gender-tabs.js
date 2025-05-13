@@ -8,7 +8,8 @@ document.addEventListener('DOMContentLoaded', function() {
         isLoading: false,
         retryCount: 0,
         maxRetries: 3,
-        prefetchedGenders: new Set()
+        prefetchedGenders: new Set(),
+        carouselInstances: new Map() // Track carousel instances
     };
 
     const config = {
@@ -39,107 +40,137 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
+    // =============================================
+    // CAROUSEL AND SLIDER INITIALIZATION
+    // =============================================
+    const CarouselManager = {
+        async initializeAll() {
+            // Clean up existing instances first
+            await this.destroyAll();
 
+            // Force a small delay to ensure DOM is ready
+            await new Promise(resolve => setTimeout(resolve, 100));
 
-
-  
-   // =============================================
-// CAROUSEL AND SLIDER INITIALIZATION
-// =============================================
-const CarouselManager = {
-    initializeAll() {
-        // Initialize banner carousel
-        if (typeof ABCarousel !== 'undefined') {
-            const bannerCarousels = document.querySelectorAll('.abc-banner-carousel:not(.initialized)');
-            bannerCarousels.forEach(carousel => {
-                new ABCarousel(carousel);
-                carousel.classList.add('initialized');
-            });
-        }
-
-        // Initialize category grid first (NEW ORDER)
-        if (typeof initResponsiveGrids !== 'undefined') {
-            initResponsiveGrids();
-        }
-
-        // Initialize image loading states (NEW CODE)
-        if (typeof initImageLoadStates !== 'undefined') {
-            initImageLoadStates();
-        }
-
-        // Initialize countdown timer
-        if (typeof WCCountdownTimer !== 'undefined') {
-            new WCCountdownTimer();
-        }
-
-        // Initialize custom category slider
-        if (typeof AWSSlider !== 'undefined') {
-            document.querySelectorAll('.aws-slider:not(.initialized)').forEach(slider => {
-                new AWSSlider(slider);
-                slider.classList.add('initialized');
-            });
-        }
-
-        // Initialize offers carousel with proper class check
-        const offerCarousels = document.querySelectorAll('.oc-carousel-wrapper:not(.initialized)');
-        offerCarousels.forEach(carousel => {
-            // Store original content if not already stored
-            if (!carousel.getAttribute('data-original-content')) {
-                carousel.setAttribute('data-original-content', carousel.innerHTML);
-            }
-            
-            // Remove any conflicting classes
-            carousel.classList.remove('cg-carousel-mode');
-            
-            if (typeof window.initCarousel === 'function') {
-                try {
-                    window.initCarousel(carousel);
+            // Initialize banner carousel
+            if (typeof ABCarousel !== 'undefined') {
+                const bannerCarousels = document.querySelectorAll('.abc-banner-carousel:not(.initialized)');
+                bannerCarousels.forEach(carousel => {
+                    new ABCarousel(carousel);
                     carousel.classList.add('initialized');
-                } catch (error) {
-                    console.error('Error initializing offer carousel:', error);
+                });
+            }
+
+            // Initialize category grid
+            if (typeof initResponsiveGrids !== 'undefined') {
+                initResponsiveGrids();
+            }
+
+            // Initialize image loading states
+            if (typeof initImageLoadStates !== 'undefined') {
+                initImageLoadStates();
+            }
+
+            // Initialize countdown timer
+            if (typeof WCCountdownTimer !== 'undefined') {
+                new WCCountdownTimer();
+            }
+
+            // Initialize custom category slider
+            if (typeof AWSSlider !== 'undefined') {
+                document.querySelectorAll('.aws-slider:not(.initialized)').forEach(slider => {
+                    new AWSSlider(slider);
+                    slider.classList.add('initialized');
+                });
+            }
+
+            // Initialize product carousel with proper cleanup and visibility handling
+            const productCarousels = document.querySelectorAll('.pc-carousel-wrapper:not(.initialized)');
+            for (const carousel of productCarousels) {
+                if (typeof ProductCarousel !== 'undefined') {
+                    try {
+                        // Force reflow and ensure visibility
+                        carousel.style.display = 'none';
+                        carousel.offsetHeight; // Force reflow
+                        carousel.style.display = '';
+                        carousel.style.visibility = 'hidden';
+
+                        // Initialize carousel
+                        const instance = new ProductCarousel(carousel);
+                        state.carouselInstances.set(carousel, instance);
+
+                        // Show carousel after initialization
+                        carousel.style.visibility = '';
+                        carousel.classList.add('initialized');
+
+                        // Force layout update
+                        instance.handleResize();
+                    } catch (error) {
+                        console.error('Error initializing product carousel:', error);
+                    }
                 }
             }
-        });
 
-        // Initialize product carousel
-        document.querySelectorAll('.pc-carousel-wrapper:not(.initialized)').forEach(carousel => {
-            if (typeof ProductCarousel !== 'undefined') {
-                new ProductCarousel(carousel);
-                carousel.classList.add('initialized');
-            }
-        });
-    },
-
-    destroyAll() {
-        // Store original content before cleanup
-        document.querySelectorAll('.oc-carousel-wrapper').forEach(carousel => {
-            if (!carousel.getAttribute('data-original-content')) {
-                carousel.setAttribute('data-original-content', carousel.innerHTML);
-            }
-        });
-
-        // Clean up observers (NEW CODE)
-        if (typeof imageObserver !== 'undefined' && imageObserver) {
-            document.querySelectorAll('.cg-category-image').forEach(img => {
-                imageObserver.unobserve(img);
+            // Initialize offers carousel
+            const offerCarousels = document.querySelectorAll('.oc-carousel-wrapper:not(.initialized)');
+            offerCarousels.forEach(carousel => {
+                if (!carousel.getAttribute('data-original-content')) {
+                    carousel.setAttribute('data-original-content', carousel.innerHTML);
+                }
+                carousel.classList.remove('cg-carousel-mode');
+                
+                if (typeof window.initCarousel === 'function') {
+                    try {
+                        window.initCarousel(carousel);
+                        carousel.classList.add('initialized');
+                    } catch (error) {
+                        console.error('Error initializing offer carousel:', error);
+                    }
+                }
             });
-        }
 
-        // Remove initialized classes
-        document.querySelectorAll('.initialized').forEach(el => {
-            el.classList.remove('initialized');
-        });
+            // Trigger resize event after all carousels are initialized
+            window.dispatchEvent(new Event('resize'));
+        },
 
-        // Clean up any existing instances
-        if (window.abcCarousels) {
-            window.abcCarousels.forEach(carousel => {
-                if (carousel.cleanup) carousel.cleanup();
+        async destroyAll() {
+            // Clean up product carousel instances
+            state.carouselInstances.forEach((instance, element) => {
+                try {
+                    if (instance && typeof instance.destroy === 'function') {
+                        instance.destroy();
+                    }
+                    element.style.visibility = '';
+                    element.style.display = '';
+                } catch (error) {
+                    console.error('Error destroying carousel instance:', error);
+                }
             });
-            window.abcCarousels = [];
-        }
-    }
-};
+            state.carouselInstances.clear();
 
+            // Clean up other carousels
+            if (window.abcCarousels) {
+                window.abcCarousels.forEach(carousel => {
+                    if (carousel.cleanup) carousel.cleanup();
+                });
+                window.abcCarousels = [];
+            }
+
+            // Remove initialized classes
+            document.querySelectorAll('.initialized').forEach(el => {
+                el.classList.remove('initialized');
+            });
+
+            // Clean up observers
+            if (typeof imageObserver !== 'undefined' && imageObserver) {
+                document.querySelectorAll('.cg-category-image').forEach(img => {
+                    imageObserver.unobserve(img);
+                });
+            }
+
+            // Wait for cleanup to complete
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+    };
 
     // =============================================
     // PERFORMANCE UTILITIES
@@ -367,55 +398,58 @@ const CarouselManager = {
     // CONTENT MANAGEMENT
     // =============================================
     async function loadContent(url, isRetry = false) {
-    if (!elements.contentContainer || state.isLoading) return;
+        if (!elements.contentContainer || state.isLoading) return;
 
-    state.isLoading = true;
-    UI.showLoadingState();
+        state.isLoading = true;
+        UI.showLoadingState();
 
-    try {
-        const gender = utils.extractGenderFromUrl(url);
-        const formData = new URLSearchParams({
-            action: 'load_gender_content',
-            gender,
-            nonce: config.nonce
-        });
+        try {
+            const gender = utils.extractGenderFromUrl(url);
+            const formData = new URLSearchParams({
+                action: 'load_gender_content',
+                gender,
+                nonce: config.nonce
+            });
 
-        const response = await fetch(config.ajaxurl, {
-            method: 'POST',
-            body: formData
-        });
+            const response = await fetch(config.ajaxurl, {
+                method: 'POST',
+                body: formData
+            });
 
-        const data = await response.json();
+            const data = await response.json();
 
-        if (!data.success) throw new Error('Failed to load content');
+            if (!data.success) throw new Error('Failed to load content');
 
-        // Clean up existing carousels before updating content
-        CarouselManager.destroyAll();
+            // Clean up existing carousels
+            await CarouselManager.destroyAll();
 
-        // Update content
-        elements.contentContainer.innerHTML = data.data.content;
+            // Update content
+            elements.contentContainer.innerHTML = data.data.content;
 
-        // Add small delay before initialization (NEW CODE)
-        await utils.delay(50);
-        
-        // Initialize all carousels after content update
-        CarouselManager.initializeAll();
+            // Add delay before initialization
+            await utils.delay(150);
+            
+            // Initialize all carousels
+            await CarouselManager.initializeAll();
 
-        window.dispatchEvent(new CustomEvent('gender-tab-loaded', {
-            detail: { gender }
-        }));
+            // Trigger a resize event to ensure proper layout
+            window.dispatchEvent(new Event('resize'));
 
-        state.contentCache.set(gender, data.data.content);
-        history.pushState({ gender }, '', url);
-        
-    } catch (error) {
-        console.error('Tab load error:', error);
-        UI.showErrorState('Failed to load content. Please try again.');
-    } finally {
-        state.isLoading = false;
-        elements.contentContainer.classList.remove('loading');
+            window.dispatchEvent(new CustomEvent('gender-tab-loaded', {
+                detail: { gender }
+            }));
+
+            state.contentCache.set(gender, data.data.content);
+            history.pushState({ gender }, '', url);
+            
+        } catch (error) {
+            console.error('Tab load error:', error);
+            UI.showErrorState('Failed to load content. Please try again.');
+        } finally {
+            state.isLoading = false;
+            elements.contentContainer.classList.remove('loading');
+        }
     }
-}
 
     // =============================================
     // EVENT HANDLERS
