@@ -39,70 +39,95 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
-    // =============================================
-    // CAROUSEL AND SLIDER INITIALIZATION
-    // =============================================
-    const CarouselManager = {
-        initializeAll() {
-            // Initialize banner carousel
-            if (typeof ABCarousel !== 'undefined') {
-                const bannerCarousels = document.querySelectorAll('.abc-banner-carousel:not(.initialized)');
-                bannerCarousels.forEach(carousel => {
-                    new ABCarousel(carousel);
-                    carousel.classList.add('initialized');
-                });
-            }
 
-            // Initialize category grid
-            if (typeof initResponsiveGrids !== 'undefined') {
-                initResponsiveGrids();
-            }
 
-            // Initialize countdown timer
-            if (typeof WCCountdownTimer !== 'undefined') {
-                new WCCountdownTimer();
-            }
 
-            // Initialize custom category slider
-            if (typeof AWSSlider !== 'undefined') {
-                document.querySelectorAll('.aws-slider:not(.initialized)').forEach(slider => {
-                    new AWSSlider(slider);
-                    slider.classList.add('initialized');
-                });
-            }
-
-            // Initialize offers carousel
-            document.querySelectorAll('.oc-carousel-wrapper:not(.initialized)').forEach(carousel => {
-                if (typeof initCarousel !== 'undefined') {
-                    initCarousel(carousel);
-                    carousel.classList.add('initialized');
-                }
+  
+   // =============================================
+// CAROUSEL AND SLIDER INITIALIZATION
+// =============================================
+const CarouselManager = {
+    initializeAll() {
+        // Initialize banner carousel
+        if (typeof ABCarousel !== 'undefined') {
+            const bannerCarousels = document.querySelectorAll('.abc-banner-carousel:not(.initialized)');
+            bannerCarousels.forEach(carousel => {
+                new ABCarousel(carousel);
+                carousel.classList.add('initialized');
             });
-
-            // Initialize product carousel
-            document.querySelectorAll('.pc-carousel-wrapper:not(.initialized)').forEach(carousel => {
-                if (typeof ProductCarousel !== 'undefined') {
-                    new ProductCarousel(carousel);
-                    carousel.classList.add('initialized');
-                }
-            });
-        },
-
-        destroyAll() {
-            // Remove initialized classes to allow re-initialization
-            document.querySelectorAll('.initialized').forEach(el => {
-                el.classList.remove('initialized');
-            });
-
-            // Clean up any existing instances
-            if (window.abcCarousels) {
-                window.abcCarousels.forEach(carousel => {
-                    if (carousel.cleanup) carousel.cleanup();
-                });
-                window.abcCarousels = [];
-            }
         }
-    };
+
+        // Initialize category grid
+        if (typeof initResponsiveGrids !== 'undefined') {
+            initResponsiveGrids();
+        }
+
+        // Initialize countdown timer
+        if (typeof WCCountdownTimer !== 'undefined') {
+            new WCCountdownTimer();
+        }
+
+        // Initialize custom category slider
+        if (typeof AWSSlider !== 'undefined') {
+            document.querySelectorAll('.aws-slider:not(.initialized)').forEach(slider => {
+                new AWSSlider(slider);
+                slider.classList.add('initialized');
+            });
+        }
+
+        // Initialize offers carousel with proper class check
+        const offerCarousels = document.querySelectorAll('.oc-carousel-wrapper:not(.initialized)');
+        offerCarousels.forEach(carousel => {
+            // Store original content if not already stored
+            if (!carousel.getAttribute('data-original-content')) {
+                carousel.setAttribute('data-original-content', carousel.innerHTML);
+            }
+            
+            // Remove any conflicting classes
+            carousel.classList.remove('cg-carousel-mode');
+            
+            if (typeof window.initCarousel === 'function') {
+                try {
+                    window.initCarousel(carousel);
+                    carousel.classList.add('initialized');
+                } catch (error) {
+                    console.error('Error initializing offer carousel:', error);
+                }
+            }
+        });
+
+        // Initialize product carousel
+        document.querySelectorAll('.pc-carousel-wrapper:not(.initialized)').forEach(carousel => {
+            if (typeof ProductCarousel !== 'undefined') {
+                new ProductCarousel(carousel);
+                carousel.classList.add('initialized');
+            }
+        });
+    },
+
+    destroyAll() {
+        // Store original content before cleanup
+        document.querySelectorAll('.oc-carousel-wrapper').forEach(carousel => {
+            if (!carousel.getAttribute('data-original-content')) {
+                carousel.setAttribute('data-original-content', carousel.innerHTML);
+            }
+        });
+
+        // Remove initialized classes to allow re-initialization
+        document.querySelectorAll('.initialized').forEach(el => {
+            el.classList.remove('initialized');
+        });
+
+        // Clean up any existing instances
+        if (window.abcCarousels) {
+            window.abcCarousels.forEach(carousel => {
+                if (carousel.cleanup) carousel.cleanup();
+            });
+            window.abcCarousels = [];
+        }
+    }
+};
+
 
     // =============================================
     // PERFORMANCE UTILITIES
