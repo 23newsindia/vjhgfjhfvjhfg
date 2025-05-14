@@ -1,4 +1,3 @@
-
 <div class="woocommerce-gender-page men-page">
     <!-- Slider Shortcode -->
     <div class="gender-slider">
@@ -31,7 +30,15 @@
         <?php echo do_shortcode('[offers_carousel slug="doffer"]'); ?>
     </div>  
     
-    
+  <!-- Product Carousel -->
+<div class="product-carousel-section">
+    <div class="pc-carousel-wrapper" data-columns="5" data-mobile-columns="2" data-autoplay="true" data-slug="basd">
+        <div class="pc-carousel-container">
+            <?php echo do_shortcode('[product_carousel slug="basd"]'); ?>
+        </div>
+    </div>
+</div>
+
   
   
       <!-- Countdown Timer with Spacing -->
@@ -48,6 +55,4 @@
         <?php echo do_shortcode('[abc_banner slug="ggfegeg"]'); ?>
     </div>
 </div>
-    
-    
-    
+</div>
