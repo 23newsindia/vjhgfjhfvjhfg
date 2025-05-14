@@ -44,21 +44,16 @@ document.addEventListener('DOMContentLoaded', function() {
     // CAROUSEL AND SLIDER INITIALIZATION
     // =============================================
     const CarouselManager = {
-        async initializeAll() {
+        initializeAll() {
             // Clean up existing instances first
-            await this.destroyAll();
-
-            // Force a small delay to ensure DOM is ready
-            await new Promise(resolve => setTimeout(resolve, 100));
+            this.destroyAll();
 
             // Initialize banner carousel
             if (typeof ABCarousel !== 'undefined') {
                 const bannerCarousels = document.querySelectorAll('.abc-banner-carousel:not(.initialized)');
                 bannerCarousels.forEach(carousel => {
-                    if (carousel) {
-                        new ABCarousel(carousel);
-                        carousel.classList.add('initialized');
-                    }
+                    new ABCarousel(carousel);
+                    carousel.classList.add('initialized');
                 });
             }
 
@@ -80,84 +75,49 @@ document.addEventListener('DOMContentLoaded', function() {
             // Initialize custom category slider
             if (typeof AWSSlider !== 'undefined') {
                 document.querySelectorAll('.aws-slider:not(.initialized)').forEach(slider => {
-                    if (slider) {
-                        new AWSSlider(slider);
-                        slider.classList.add('initialized');
-                    }
+                    new AWSSlider(slider);
+                    slider.classList.add('initialized');
                 });
             }
 
-            // Initialize product carousel with proper cleanup and visibility handling
-            const productCarousels = document.querySelectorAll('.pc-carousel-wrapper:not(.initialized)');
-            for (const carousel of productCarousels) {
-                if (carousel && typeof ProductCarousel !== 'undefined') {
+            // Initialize product carousel with proper cleanup
+            document.querySelectorAll('.pc-carousel-wrapper:not(.initialized)').forEach(carousel => {
+                if (typeof ProductCarousel !== 'undefined') {
                     try {
-                        // Ensure container exists and has children
-                        const container = carousel.querySelector('.pc-carousel-container');
-                        if (!container || !container.children.length) {
-                            console.warn('Invalid carousel structure:', carousel);
-                            continue;
-                        }
-
-                        // Force reflow and ensure visibility
-                        carousel.style.display = 'none';
-                        carousel.offsetHeight; // Force reflow
-                        carousel.style.display = '';
-                        carousel.style.visibility = 'hidden';
-
-                        // Initialize carousel
+                        // Store instance for cleanup
                         const instance = new ProductCarousel(carousel);
                         state.carouselInstances.set(carousel, instance);
-
-                        // Show carousel after initialization
-                        carousel.style.visibility = '';
                         carousel.classList.add('initialized');
-
-                        // Force layout update
-                        instance.handleResize();
                     } catch (error) {
                         console.error('Error initializing product carousel:', error);
                     }
                 }
-            }
+            });
 
             // Initialize offers carousel
             const offerCarousels = document.querySelectorAll('.oc-carousel-wrapper:not(.initialized)');
             offerCarousels.forEach(carousel => {
-                if (carousel) {
-                    if (!carousel.getAttribute('data-original-content')) {
-                        carousel.setAttribute('data-original-content', carousel.innerHTML);
-                    }
-                    carousel.classList.remove('cg-carousel-mode');
-                    
-                    if (typeof window.initCarousel === 'function') {
-                        try {
-                            window.initCarousel(carousel);
-                            carousel.classList.add('initialized');
-                        } catch (error) {
-                            console.error('Error initializing offer carousel:', error);
-                        }
+                if (!carousel.getAttribute('data-original-content')) {
+                    carousel.setAttribute('data-original-content', carousel.innerHTML);
+                }
+                carousel.classList.remove('cg-carousel-mode');
+                
+                if (typeof window.initCarousel === 'function') {
+                    try {
+                        window.initCarousel(carousel);
+                        carousel.classList.add('initialized');
+                    } catch (error) {
+                        console.error('Error initializing offer carousel:', error);
                     }
                 }
             });
-
-            // Trigger resize event after all carousels are initialized
-            window.dispatchEvent(new Event('resize'));
         },
 
-        async destroyAll() {
+        destroyAll() {
             // Clean up product carousel instances
             state.carouselInstances.forEach((instance, element) => {
-                try {
-                    if (instance && typeof instance.destroy === 'function') {
-                        instance.destroy();
-                    }
-                    if (element) {
-                        element.style.visibility = '';
-                        element.style.display = '';
-                    }
-                } catch (error) {
-                    console.error('Error destroying carousel instance:', error);
+                if (instance && typeof instance.destroy === 'function') {
+                    instance.destroy();
                 }
             });
             state.carouselInstances.clear();
@@ -165,7 +125,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Clean up other carousels
             if (window.abcCarousels) {
                 window.abcCarousels.forEach(carousel => {
-                    if (carousel && carousel.cleanup) carousel.cleanup();
+                    if (carousel.cleanup) carousel.cleanup();
                 });
                 window.abcCarousels = [];
             }
@@ -178,12 +138,9 @@ document.addEventListener('DOMContentLoaded', function() {
             // Clean up observers
             if (typeof imageObserver !== 'undefined' && imageObserver) {
                 document.querySelectorAll('.cg-category-image').forEach(img => {
-                    if (img) imageObserver.unobserve(img);
+                    imageObserver.unobserve(img);
                 });
             }
-
-            // Wait for cleanup to complete
-            await new Promise(resolve => setTimeout(resolve, 100));
         }
     };
 
@@ -409,6 +366,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
+    // =============================================
+    // CONTENT MANAGEMENT
+    // =============================================
     async function loadContent(url, isRetry = false) {
         if (!elements.contentContainer || state.isLoading) return;
 
@@ -433,22 +393,16 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!data.success) throw new Error('Failed to load content');
 
             // Clean up existing carousels
-            await CarouselManager.destroyAll();
+            CarouselManager.destroyAll();
 
             // Update content
             elements.contentContainer.innerHTML = data.data.content;
 
-            // Add longer delay before initialization
-            await utils.delay(500);
+            // Add small delay before initialization
+            await utils.delay(100);
             
             // Initialize all carousels
-            await CarouselManager.initializeAll();
-
-            // Additional delay before triggering resize
-            await utils.delay(200);
-
-            // Trigger a resize event to ensure proper layout
-            window.dispatchEvent(new Event('resize'));
+            CarouselManager.initializeAll();
 
             window.dispatchEvent(new CustomEvent('gender-tab-loaded', {
                 detail: { gender }
